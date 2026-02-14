@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ATM Interface</title>
+    <style>
+        :root {
+            font-family: Inter, Arial, sans-serif;
+            color: #0f172a;
+            background: #f8fafc;
+        }
+        body {
+            margin: 0;
+            padding: 24px;
+            background: linear-gradient(160deg, #e2e8f0, #f8fafc);
+        }
+        h1 { margin-top: 0; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
+            padding: 16px;
+        }
+        .card h2 {
+            font-size: 1rem;
+            margin: 0 0 12px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        input, select, button {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.95rem;
+        }
+        button {
+            background: #1d4ed8;
+            color: #fff;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover { background: #1e40af; }
+        #output {
+            margin-top: 16px;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            min-height: 120px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<h1>ATM Interface</h1>
+<p>Use this page to create users/accounts, deposit, withdraw, transfer, and review account data.</p>
+
+<div class="grid">
+    <section class="card">
+        <h2>Create User</h2>
+        <form id="createUserForm">
+            <input name="userName" placeholder="User Name" required />
+            <input name="userPin" placeholder="PIN (4 digits)" required maxlength="4" minlength="4" />
+            <input name="email" type="email" placeholder="Email" required />
+            <select name="role">
+                <option value="CUSTOMER">CUSTOMER</option>
+                <option value="ADMIN">ADMIN</option>
+            </select>
+            <button type="submit">Create User</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Create Account</h2>
+        <form id="createAccountForm">
+            <input name="accountNumber" placeholder="Account Number" required />
+            <input name="balance" type="number" min="0" step="0.01" placeholder="Initial Balance" required />
+            <select name="accountType">
+                <option value="SAVINGS">SAVINGS</option>
+                <option value="CURRENT">CURRENT</option>
+            </select>
+            <input name="userId" type="number" placeholder="Owner User ID" required />
+            <button type="submit">Create Account</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Deposit / Withdraw</h2>
+        <form id="cashForm">
+            <input name="accountId" type="number" placeholder="Account ID" required />
+            <input name="amount" type="number" min="0.01" step="0.01" placeholder="Amount" required />
+            <button type="button" id="depositBtn">Deposit</button>
+            <button type="button" id="withdrawBtn">Withdraw</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Transfer</h2>
+        <form id="transferForm">
+            <input name="fromAccountId" type="number" placeholder="From Account ID" required />
+            <input name="toAccountId" type="number" placeholder="To Account ID" required />
+            <input name="amount" type="number" min="0.01" step="0.01" placeholder="Amount" required />
+            <button type="submit">Transfer</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Account Lookup</h2>
+        <form id="balanceForm">
+            <input name="accountId" type="number" placeholder="Account ID" required />
+            <button type="button" id="checkBalanceBtn">Check Balance</button>
+            <button type="button" id="loadTransactionsBtn">Load Transactions</button>
+            <button type="button" id="loadAccountsBtn">List All Accounts</button>
+        </form>
+    </section>
+</div>
+
+<pre id="output">Ready.</pre>
+
+<script>
+    const output = document.getElementById('output');
+
+    const show = (data) => {
+        output.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    };
+
+    async function callApi(url, options = {}) {
+        const response = await fetch(url, options);
+        const text = await response.text();
+        let body;
+        try {
+            body = text ? JSON.parse(text) : null;
+        } catch {
+            body = text;
+        }
+
+        if (!response.ok) {
+            throw new Error(typeof body === 'string' ? body : JSON.stringify(body));
+        }
+
+        return body;
+    }
+
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = new FormData(e.target);
+
+        const payload = {
+            userName: form.get('userName'),
+            userPin: form.get('userPin'),
+            email: form.get('email'),
+            role: form.get('role')
+        };
+
+        try {
+            show(await callApi('/api/users/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }));
+        } catch (err) {
+            show(err.message);
+        }
+    });
+
+    document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = new FormData(e.target);
+        const payload = {
+            accountNumber: form.get('accountNumber'),
+            balance: Number(form.get('balance')),
+            accountType: form.get('accountType'),
+            user: { id: Number(form.get('userId')) }
+        };
+
+        try {
+            show(await callApi('/api/accounts/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }));
+        } catch (err) {
+            show(err.message);
+        }
+    });
+
+    async function cashOperation(type) {
+        const form = new FormData(document.getElementById('cashForm'));
+        const accountId = form.get('accountId');
+        const amount = form.get('amount');
+
+        try {
+            show(await callApi(`/api/accounts/${accountId}/${type}?amount=${amount}`, { method: 'POST' }));
+        } catch (err) {
+            show(err.message);
+        }
+    }
+
+    document.getElementById('depositBtn').addEventListener('click', () => cashOperation('deposit'));
+    document.getElementById('withdrawBtn').addEventListener('click', () => cashOperation('withdraw'));
+
+    document.getElementById('transferForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = new FormData(e.target);
+        const params = new URLSearchParams({
+            fromAccountId: form.get('fromAccountId'),
+            toAccountId: form.get('toAccountId'),
+            amount: form.get('amount')
+        });
+
+        try {
+            show(await callApi(`/api/accounts/transfer?${params}`, { method: 'POST' }));
+        } catch (err) {
+            show(err.message);
+        }
+    });
+
+    document.getElementById('checkBalanceBtn').addEventListener('click', async () => {
+        const accountId = new FormData(document.getElementById('balanceForm')).get('accountId');
+        try {
+            const balance = await callApi(`/api/accounts/${accountId}/balance`);
+            show({ accountId, balance });
+        } catch (err) {
+            show(err.message);
+        }
+    });
+
+    document.getElementById('loadTransactionsBtn').addEventListener('click', async () => {
+        const accountId = new FormData(document.getElementById('balanceForm')).get('accountId');
+        try {
+            show(await callApi(`/api/accounts/${accountId}/transactions`));
+        } catch (err) {
+            show(err.message);
+        }
+    });
+
+    document.getElementById('loadAccountsBtn').addEventListener('click', async () => {
+        try {
+            show(await callApi('/api/accounts'));
+        } catch (err) {
+            show(err.message);
+        }
+    });
+</script>
+</body>
+</html>
